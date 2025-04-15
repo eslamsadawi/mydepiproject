@@ -26,7 +26,7 @@
     - name: Start minikube if not running
       command: minikube start
       register: minikube_start
-      when: minikube_installed.rc == 0 and (minikube_status.rc != 0 or "host Running" not in minikube_status.stdout)
+      when: minikube_installed.rc == 0 and (minikube_status.rc != 0 or "host: Stopped" in minikube_status.stdout)
       ignore_errors: yes
       
     - name: Display minikube start results
@@ -48,11 +48,22 @@
       debug:
         msg: "{{ cluster_info.stdout_lines }}"
       when: cluster_info.rc == 0
-      
+
     - name: Display error message if connectivity fails
       debug:
         msg: "Failed to connect to Kubernetes cluster. Check connectivity and cluster status."
       when: cluster_info.rc != 0
+
+    - name: Load local Docker image into minikube
+      command: minikube image load depi-shop:latest
+      register: image_load_result
+      when: cluster_info.rc == 0
+      ignore_errors: yes
+
+    - name: Display image loading result
+      debug:
+        var: image_load_result
+      when: image_load_result is defined
 
     # Kubernetes Deployment tasks - only run if cluster is available
     - name: deploy cafeapp on kubernetes
@@ -85,4 +96,24 @@
       command: kubectl rollout restart deployment.apps/mylab1-cafe-app
       ignore_errors: yes
       when: cluster_info.rc == 0 and deployment_result.rc == 0
+
+    - name: Wait for pods to be ready (60 seconds)
+      command: kubectl get pods -l app=cafe-app -o jsonpath='{.items[*].status.phase}'
+      register: pod_status
+      retries: 12  # Try up to 12 times
+      delay: 5     # Wait 5 seconds between retries
+      until: "'Running' in pod_status.stdout"
+      ignore_errors: yes
+      when: cluster_info.rc == 0 and deployment_result.rc == 0
+      
+    - name: Get service URL from minikube
+      command: minikube service mylab1-service --url
+      register: service_url
+      ignore_errors: yes
+      when: cluster_info.rc == 0 and service_result.rc == 0
+      
+    - name: Display service URL
+      debug:
+        var: service_url
+      when: service_url is defined
 
