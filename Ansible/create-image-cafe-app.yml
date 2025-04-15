@@ -1,5 +1,6 @@
-- hosts: ansible
-  become: true
+- hosts: localhost
+  connection: local
+  gather_facts: yes
   tasks:
   - name: clone repository
     git:

@@ -50,7 +50,7 @@ pipeline {
                 sshagent(credentials: ['ansible-ssh-credentials']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} \\
-                        "cd ${REMOTE_PROJECT_DIR} && ansible-playbook Ansible/create-image-cafe-app.yml"
+                        "cd ${REMOTE_PROJECT_DIR} && ansible-playbook -i Ansible/inventory Ansible/create-image-cafe-app.yml"
                     """
                 }
             }
@@ -91,7 +91,7 @@ pipeline {
                 sshagent(credentials: ['ansible-ssh-credentials']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} \\
-                        "cd ${REMOTE_PROJECT_DIR} && ansible-playbook Ansible/k8s-deploy.yml"
+                        "cd ${REMOTE_PROJECT_DIR} && ansible-playbook -i Ansible/inventory Ansible/k8s-deploy.yml"
                     """
                 }
             }
