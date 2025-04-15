@@ -22,7 +22,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 // Clone the Git repository
-                git url: 'https://github.com/Omar-Abdelwahabb1/cafe-app.git', branch: 'main'
+                git url: 'https://github.com/eslamsadawi/mydepiproject.git', branch: 'master'
             }
         }
 
