@@ -41,7 +41,7 @@ pipeline {
                 }
             }
         }
-
+        //retriger for the pipeline 
         stage('Test') {
             steps {
                 // Example of a test stage (adjust based on your project)
