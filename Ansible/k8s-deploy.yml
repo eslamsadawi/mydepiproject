@@ -2,6 +2,43 @@
   connection: local
   gather_facts: yes
   tasks:
+    - name: Check if minikube is installed
+      command: which minikube
+      register: minikube_installed
+      ignore_errors: yes
+      
+    - name: Display minikube status
+      debug:
+        msg: "Minikube is installed"
+      when: minikube_installed.rc == 0
+      
+    - name: Check minikube status
+      command: minikube status
+      register: minikube_status
+      ignore_errors: yes
+      when: minikube_installed.rc == 0
+      
+    - name: Display minikube status
+      debug:
+        var: minikube_status
+      when: minikube_installed.rc == 0
+      
+    - name: Start minikube if not running
+      command: minikube start
+      register: minikube_start
+      when: minikube_installed.rc == 0 and (minikube_status.rc != 0 or "host: Running" not in minikube_status.stdout)
+      ignore_errors: yes
+      
+    - name: Display minikube start results
+      debug:
+        var: minikube_start
+      when: minikube_start is defined and minikube_start.changed
+      
+    - name: Wait for minikube to initialize (30 seconds)
+      wait_for:
+        timeout: 30
+      when: minikube_start is defined and minikube_start.changed
+
     - name: Check Kubernetes connectivity
       command: kubectl cluster-info
       register: cluster_info
@@ -17,16 +54,19 @@
         msg: "Failed to connect to Kubernetes cluster. Check connectivity and cluster status."
       when: cluster_info.rc != 0
 
+    # Kubernetes Deployment tasks - only run if cluster is available
     - name: deploy cafeapp on kubernetes
       command: kubectl apply -f cafe-app-deployment.yml --validate=false
       args:
         chdir: ../K8S
       register: deployment_result
       ignore_errors: yes
+      when: cluster_info.rc == 0
 
     - name: Debug deployment result
       debug:
         var: deployment_result
+      when: cluster_info.rc == 0
       
     - name: create service for cafeapp
       command: kubectl apply -f cafe-app-svc.yml --validate=false
@@ -34,13 +74,15 @@
         chdir: ../K8S
       register: service_result
       ignore_errors: yes
+      when: cluster_info.rc == 0
 
     - name: Debug service result
       debug:
         var: service_result
+      when: cluster_info.rc == 0
 
     - name: Update deployment with new pods if image updated in docker hub
       command: kubectl rollout restart deployment.apps/mylab1-cafe-app
       ignore_errors: yes
-      when: deployment_result.rc == 0
+      when: cluster_info.rc == 0 and deployment_result.rc == 0
 

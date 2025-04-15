@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  cafe-app:
+    image: depi-shop:latest
+    container_name: cafe-app
+    ports:
+      - "8080:80"
+    restart: always
