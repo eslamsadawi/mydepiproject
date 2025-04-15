@@ -11,12 +11,12 @@ pipeline {
         ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
     }
 
-    triggers {
-        // Poll SCM every minute (you might want to change this to a more reasonable schedule)
-        pollSCM('* * * * *')
-        // GitHub hook trigger for GIT SCM polling
-        githubPush()
-    }
+    // triggers {
+    //     // Poll SCM every minute (you might want to change this to a more reasonable schedule)
+    //     pollSCM('* * * * *')
+    //     // GitHub hook trigger for GIT SCM polling
+    //     githubPush()
+    // }
 
     stages {
         stage('Checkout') {
