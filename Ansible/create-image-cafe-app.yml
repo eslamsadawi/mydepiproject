@@ -2,17 +2,25 @@
   connection: local
   gather_facts: yes
   tasks:
+  - name: Create docker directory with proper permissions
+    file:
+      path: "{{ ansible_env.HOME }}/docker/depi-shop"
+      state: directory
+      mode: '0755'
+    become: false
+
   - name: clone repository
     git:
       repo: https://github.com/eslamsadawi/mydepiproject.git
-      dest: /opt/docker/depi-shop
+      dest: "{{ ansible_env.HOME }}/docker/depi-shop"
       clone: yes
       update: yes
+    become: false
 
   - name: create docker image
-    command: docker build -t depi-shop:latest /opt/docker/depi-shop
+    command: docker build -t depi-shop:latest "{{ ansible_env.HOME }}/docker/depi-shop"
     args:
-      chdir: /opt/docker/depi-shop
+      chdir: "{{ ansible_env.HOME }}/docker/depi-shop"
   # - name: log in to Docker Hub
   #   command: docker login -u omarabdelwahab1 -p omarahmed.81204 # Temporarily removing no_log to see errors
 
