@@ -19,8 +19,7 @@ pipeline {
     // }
     // testing pipeline trgger 
     // testing pipeline trgger 
-    // testing pipeline trgger 
-    // testing pipeline trgger 
+   
     stages {
         stage('Checkout') {
             steps {
