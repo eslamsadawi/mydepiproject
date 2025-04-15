@@ -26,7 +26,7 @@
     - name: Start minikube if not running
       command: minikube start
       register: minikube_start
-      when: minikube_installed.rc == 0 and (minikube_status.rc != 0 or "host: Running" not in minikube_status.stdout)
+      when: minikube_installed.rc == 0 and (minikube_status.rc != 0 or "host Running" not in minikube_status.stdout)
       ignore_errors: yes
       
     - name: Display minikube start results
