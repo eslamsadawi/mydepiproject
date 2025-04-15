@@ -7,9 +7,10 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    // environment {
-    //     ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
-    // }
+    environment {
+        ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
+        REMOTE_PROJECT_DIR = '/opt/deploy/mydepiproject' // Directory on remote server where code will be stored
+    }
 
     // triggers {
     //     // Poll SCM every minute (you might want to change this to a more reasonable schedule)
@@ -30,14 +31,30 @@ pipeline {
             }
         }
 
+        stage('Transfer Code to Ansible Server') {
+            steps {
+                // Create a tar file of the project
+                sh 'tar -czf mydepiproject.tar.gz .'
+                
+                // Transfer the tar file to the Ansible server
+                sshagent(credentials: ['ansible-ssh-credentials']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} "mkdir -p ${REMOTE_PROJECT_DIR}"
+                        scp -o StrictHostKeyChecking=no mydepiproject.tar.gz ubuntu@\${ANSIBLE_SERVER}:${REMOTE_PROJECT_DIR}/
+                        ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} "cd ${REMOTE_PROJECT_DIR} && tar -xzf mydepiproject.tar.gz && rm mydepiproject.tar.gz"
+                    """
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 // Running an Ansible playbook to create the Docker image via SSH
-            sshagent(credentials: ['ansible-ssh-credentials']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ubuntu@${ANSIBLE_SERVER} \
-                        "ansible-playbook /opt/docker/create-image-cafe-app.yml"
-                    '''
+                sshagent(credentials: ['ansible-ssh-credentials']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} \\
+                        "cd ${REMOTE_PROJECT_DIR} && ansible-playbook Ansible/create-image-cafe-app.yml"
+                    """
                 }
             }
         }
@@ -54,7 +71,10 @@ pipeline {
             steps {
                 // Running an Ansible playbook to deploy the app
                 sshagent(credentials: ['ansible-ssh-credentials']) {
-                    sh 'ansible-playbook /opt/docker/k8s-deploy.yml'
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} \\
+                        "cd ${REMOTE_PROJECT_DIR} && ansible-playbook Ansible/k8s-deploy.yml"
+                    """
                 }
             }
         }
