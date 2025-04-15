@@ -3,6 +3,7 @@
   gather_facts: yes
   vars:
     image_name: "depi-shop:latest"
+    host_port: 80
   tasks:
     - name: Check if minikube is installed
       command: which minikube
@@ -198,4 +199,56 @@
       debug:
         var: service_url
       when: service_url is defined
+      
+    # New tasks for exposing the service to the public
+    - name: Get minikube IP
+      command: minikube ip
+      register: minikube_ip
+      when: cluster_info.rc == 0
+      ignore_errors: yes
+      
+    - name: Get NodePort of the service
+      shell: kubectl get service mylab1-service -o jsonpath='{.spec.ports[0].nodePort}'
+      register: node_port
+      when: cluster_info.rc == 0
+      ignore_errors: yes
+      
+    - name: Display minikube IP and NodePort
+      debug:
+        msg: "Minikube IP: {{ minikube_ip.stdout }}, NodePort: {{ node_port.stdout }}"
+      when: minikube_ip is defined and node_port is defined and minikube_ip.rc == 0 and node_port.rc == 0
+      
+    - name: Check if socat is installed
+      command: which socat
+      register: socat_installed
+      ignore_errors: yes
+      
+    - name: Install socat if not present
+      apt:
+        name: socat
+        state: present
+      become: yes
+      when: socat_installed.rc != 0
+      ignore_errors: yes
+      
+    - name: Stop any existing socat processes
+      shell: pkill -f "socat.*{{ host_port }}" || true
+      ignore_errors: yes
+      
+    - name: Set up port forwarding with socat (in background)
+      shell: nohup socat TCP-LISTEN:{{ host_port }},fork,reuseaddr TCP:{{ minikube_ip.stdout }}:{{ node_port.stdout }} > /tmp/socat.log 2>&1 &
+      when: minikube_ip is defined and node_port is defined and minikube_ip.rc == 0 and node_port.rc == 0
+      ignore_errors: yes
+      async: 10
+      poll: 0
+      
+    - name: Get public IP of the host
+      shell: curl -s http://checkip.amazonaws.com || curl -s https://api.ipify.org || echo "Could not determine public IP"
+      register: public_ip
+      ignore_errors: yes
+      
+    - name: Display access information
+      debug:
+        msg: "Your application should be accessible at http://{{ public_ip.stdout }}:{{ host_port }}"
+      when: public_ip is defined
 
