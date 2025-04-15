@@ -34,6 +34,8 @@ pipeline {
             steps {
                 // Running an Ansible playbook to create the Docker image
                 sshagent(credentials: ['ansible-ssh-credentials']) {
+                    sh 'hostname'
+                    sh 'ifconfig'
                     sh 'ansible-playbook /opt/docker/create-image-cafe-app.yml'
                 }
             }
