@@ -6,23 +6,8 @@ pipeline {
         skipStagesAfterUnstable()
         disableConcurrentBuilds()
     }
+    // added a simple comment to test the pipeline
 
-    // environment {
-    //     ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
-    //     REMOTE_PROJECT_DIR = '/opt/deploy/mydepiproject' // Directory on remote server where code will be stored
-    // }
-
-    // triggers {
-    //     // Poll SCM every minute (you might want to change this to a more reasonable schedule)
-    //     pollSCM('* * * * *')
-    //     // GitHub hook trigger for GIT SCM polling
-    //     githubPush()
-    // }
-    // testing pipeline trgger 
-    // testing pipeline trgger 
-    // testing pipeline trgger 
-    // testing pipeline trgger 
-   
     stages {
         stage('Checkout') {
             steps {
