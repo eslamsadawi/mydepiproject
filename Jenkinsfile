@@ -7,9 +7,9 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    environment {
-        ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
-    }
+    // environment {
+    //     ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
+    // }
 
     // triggers {
     //     // Poll SCM every minute (you might want to change this to a more reasonable schedule)
@@ -32,12 +32,16 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                // Running an Ansible playbook to create the Docker image
-                sshagent(credentials: ['ansible-ssh-credentials']) {
-                    sh 'hostname'
-                    sh 'ifconfig'
-                    sh 'ansible-playbook /opt/docker/create-image-cafe-app.yml'
-                }
+                // Running an Ansible playbook to create the Docker image via SSH
+                ssh(
+                    credentialsId: 'ansible-ssh-credentials',
+                    host: "${ANSIBLE_SERVER}",
+                    port: 22,
+                    username: 'ubuntu',
+                    script: '''
+                        ansible-playbook /opt/docker/create-image-cafe-app.yml
+                    '''
+                )
             }
         }
 
