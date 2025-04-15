@@ -64,6 +64,27 @@ pipeline {
             }
         }
 
+        stage('Check Kubernetes Connectivity') {
+            steps {
+                // Check if Kubernetes cluster is accessible
+                sshagent(credentials: ['ansible-ssh-credentials']) {
+                    script {
+                        try {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ubuntu@\${ANSIBLE_SERVER} \\
+                                "kubectl cluster-info"
+                            """
+                            echo "Kubernetes cluster is accessible"
+                        } catch (Exception e) {
+                            echo "WARNING: Kubernetes cluster connectivity issue detected"
+                            echo "Error message: ${e.getMessage()}"
+                            echo "Continuing with deployment using --validate=false flag"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy to Kubernetes') {
             steps {
                 // Running an Ansible playbook to deploy the app

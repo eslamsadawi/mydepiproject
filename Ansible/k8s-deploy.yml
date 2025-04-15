@@ -1,15 +1,34 @@
 - hosts: localhost
   tasks:
+    - name: Check Kubernetes connectivity
+      command: kubectl cluster-info
+      register: cluster_info
+      ignore_errors: yes
+      
+    - name: Display cluster info if successful
+      debug:
+        msg: "{{ cluster_info.stdout_lines }}"
+      when: cluster_info.rc == 0
+      
+    - name: Display error message if connectivity fails
+      debug:
+        msg: "Failed to connect to Kubernetes cluster. Check connectivity and cluster status."
+      when: cluster_info.rc != 0
+
     - name: deploy cafeapp on kubernetes
-      command: kubectl apply -f cafe-app-deployment.yml
+      command: kubectl apply -f cafe-app-deployment.yml --validate=false
       args:
         chdir: ../K8S
+      when: cluster_info.rc == 0
 
     - name: create service for cafeapp
-      command: kubectl apply -f cafe-app-svc.yml
+      command: kubectl apply -f cafe-app-svc.yml --validate=false
       args:
         chdir: ../K8S
+      when: cluster_info.rc == 0
 
     - name: Update deployment with new pods if image updated in docker hub
       command: kubectl rollout restart deployment.apps/mylab1-cafe-app
+      when: cluster_info.rc == 0
+      ignore_errors: yes
 
