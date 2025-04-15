@@ -1,6 +1,8 @@
 - hosts: localhost
   connection: local
   gather_facts: yes
+  vars:
+    image_name: "depi-shop:latest"
   tasks:
     - name: Check if minikube is installed
       command: which minikube
@@ -54,20 +56,80 @@
         msg: "Failed to connect to Kubernetes cluster. Check connectivity and cluster status."
       when: cluster_info.rc != 0
 
-    - name: Load local Docker image into minikube
-      command: minikube image load depi-shop:latest
-      register: image_load_result
-      when: cluster_info.rc == 0
+    - name: Check if Docker is running
+      command: systemctl status docker
+      register: docker_status
       ignore_errors: yes
+
+    - name: List available Docker images
+      command: docker images
+      register: docker_images
+      ignore_errors: yes
+
+    - name: Display available Docker images
+      debug:
+        var: docker_images.stdout_lines
+      when: docker_images is defined
+
+    # Ensure minikube can access the Docker image using these alternative methods
+    - name: Method 1 - Load image directly into minikube
+      command: minikube image load {{ image_name }}
+      register: image_load_result
+      ignore_errors: yes
+      when: cluster_info.rc == 0
 
     - name: Display image loading result
       debug:
         var: image_load_result
       when: image_load_result is defined
+      
+    - name: Method 2 - Configure to use minikube Docker daemon
+      shell: eval $(minikube docker-env) && docker build -t {{ image_name }} {{ ansible_env.HOME }}/docker/depi-shop
+      ignore_errors: yes
+      when: cluster_info.rc == 0 and (image_load_result.rc != 0 or image_load_result is not defined)
+      register: minikube_docker_build
+      
+    - name: Display minikube docker build result
+      debug:
+        var: minikube_docker_build
+      when: minikube_docker_build is defined
+
+    # Update the deployment YAML to use imagePullPolicy: Never
+    - name: Create a temp file with modified deployment
+      copy:
+        dest: ../K8S/temp-deployment.yml
+        content: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mylab1-cafe-app
+            labels:
+              app: cafe-app
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: cafe-app
+            template:
+              metadata:
+                labels:
+                  app: cafe-app
+              spec:
+                containers:
+                - name: cafe-app
+                  image: {{ image_name }}
+                  imagePullPolicy: Never
+                  ports:
+                  - containerPort: 80
+            strategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxSurge: 1
+                maxUnavailable: 1
 
     # Kubernetes Deployment tasks - only run if cluster is available
-    - name: deploy cafeapp on kubernetes
-      command: kubectl apply -f cafe-app-deployment.yml --validate=false
+    - name: deploy cafeapp on kubernetes with modified deployment
+      command: kubectl apply -f temp-deployment.yml --validate=false
       args:
         chdir: ../K8S
       register: deployment_result
@@ -98,13 +160,33 @@
       when: cluster_info.rc == 0 and deployment_result.rc == 0
 
     - name: Wait for pods to be ready (60 seconds)
-      command: kubectl get pods -l app=cafe-app -o jsonpath='{.items[*].status.phase}'
-      register: pod_status
-      retries: 12  # Try up to 12 times
-      delay: 5     # Wait 5 seconds between retries
-      until: "'Running' in pod_status.stdout"
+      shell: |
+        start_time=$(date +%s)
+        while [ $(($(date +%s) - start_time)) -lt 60 ]; do
+          status=$(kubectl get pods -l app=cafe-app -o jsonpath='{.items[*].status.phase}')
+          if [[ "$status" == *"Running"* ]]; then
+            echo "Pods are running"
+            exit 0
+          fi
+          echo "Waiting for pods... Current status: $(kubectl get pods)"
+          sleep 5
+        done
+        echo "Timeout waiting for pods to be ready"
+        exit 1
+      register: pod_wait_result
       ignore_errors: yes
       when: cluster_info.rc == 0 and deployment_result.rc == 0
+
+    - name: Show pod details if there are issues
+      command: kubectl describe pods -l app=cafe-app
+      register: pod_details
+      when: cluster_info.rc == 0
+      ignore_errors: yes
+      
+    - name: Display pod details
+      debug:
+        var: pod_details.stdout_lines
+      when: pod_details is defined
       
     - name: Get service URL from minikube
       command: minikube service mylab1-service --url
