@@ -16,12 +16,11 @@ spec:
     spec:
       containers:
       - name: cafe-app
-        image: omarabdelwahab1/cafe-app
+        image: depi-shop:latest
         ports:
         - containerPort: 80
-  strategy:  # Corrected spelling from "strattegy" to "strategy"
+  strategy:
     type: RollingUpdate
-    rollingUpdate:  # Corrected spelling from "rollingupdate" to "rollingUpdate"
+    rollingUpdate:
       maxSurge: 1
       maxUnavailable: 1
-

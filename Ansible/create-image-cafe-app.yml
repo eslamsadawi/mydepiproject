@@ -1,9 +1,10 @@
 - hosts: ansible
+  become: true
   tasks:
   - name: clone repository
     git:
       repo: https://github.com/eslamsadawi/mydepiproject.git
-      dest: /opt/docker/cafe-app
+      dest: /opt/docker/depi-shop
       clone: yes
       update: yes
 
