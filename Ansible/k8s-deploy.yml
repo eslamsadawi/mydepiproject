@@ -3,7 +3,7 @@
   gather_facts: yes
   vars:
     image_name: "depi-shop:latest"
-    host_port: 80
+    host_port: 8080  # Changed to 8080 to avoid requiring root privileges
   tasks:
     - name: Check if minikube is installed
       command: which minikube
@@ -230,20 +230,84 @@
       become: yes
       when: socat_installed.rc != 0
       ignore_errors: yes
-      
-    - name: Stop any existing socat processes
-      shell: pkill -f "socat.*{{ host_port }}" || true
+
+    - name: Create systemd service file for port forwarding
+      copy:
+        dest: /etc/systemd/system/minikube-port-forward.service
+        content: |
+          [Unit]
+          Description=Minikube Port Forward Service
+          After=network.target
+          
+          [Service]
+          ExecStart=/usr/bin/socat TCP-LISTEN:{{ host_port }},fork,reuseaddr TCP:{{ minikube_ip.stdout }}:{{ node_port.stdout }}
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+      become: yes
+      when: minikube_ip is defined and node_port is defined and minikube_ip.rc == 0 and node_port.rc == 0
+      register: systemd_service
       ignore_errors: yes
       
-    - name: Set up port forwarding with socat (in background)
-      shell: nohup socat TCP-LISTEN:{{ host_port }},fork,reuseaddr TCP:{{ minikube_ip.stdout }}:{{ node_port.stdout }} > /tmp/socat.log 2>&1 &
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+      become: yes
+      when: systemd_service is changed
+      ignore_errors: yes
+      
+    - name: Enable and start minikube port forward service
+      systemd:
+        name: minikube-port-forward
+        state: restarted
+        enabled: yes
+      become: yes
       when: minikube_ip is defined and node_port is defined and minikube_ip.rc == 0 and node_port.rc == 0
       ignore_errors: yes
-      async: 10
-      poll: 0
+      
+    - name: Verify if port forwarding is working
+      wait_for:
+        host: localhost
+        port: "{{ host_port }}"
+        timeout: 10
+      ignore_errors: yes
+      register: port_check
+      
+    - name: Show port forwarding status
+      debug:
+        msg: "Port forwarding is {{ 'active' if port_check.failed == false else 'not working' }}"
+        
+    - name: Alternative approach - use kubectl port-forward in background
+      shell: |
+        nohup kubectl port-forward --address 0.0.0.0 service/mylab1-service {{ host_port }}:80 > /tmp/port-forward.log 2>&1 &
+        echo $! > /tmp/port-forward.pid
+      when: port_check.failed | default(true)
+      ignore_errors: yes
+      
+    - name: Check if AWS EC2 instance
+      stat:
+        path: /sys/hypervisor/uuid
+      register: hypervisor_uuid
+      ignore_errors: yes
+      
+    - name: Get AWS security group info
+      shell: |
+        if grep -q "^ec2" /sys/hypervisor/uuid 2>/dev/null; then
+          echo "This is an EC2 instance. Ensure port {{ host_port }} is open in your security group."
+        else
+          echo "Not an EC2 instance or unable to determine"
+        fi
+      register: aws_info
+      ignore_errors: yes
+      
+    - name: Show AWS info
+      debug:
+        var: aws_info.stdout_lines
+      when: aws_info is defined
       
     - name: Get public IP of the host
-      shell: curl -s http://checkip.amazonaws.com || curl -s https://api.ipify.org || echo "Could not determine public IP"
+      shell: curl -s http://checkip.amazonaws.com || curl -s https://api.ipify.org || hostname -I | awk '{print $1}'
       register: public_ip
       ignore_errors: yes
       
