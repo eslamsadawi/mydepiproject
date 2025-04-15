@@ -33,15 +33,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 // Running an Ansible playbook to create the Docker image via SSH
-                ssh(
-                    credentialsId: 'ansible-ssh-credentials',
-                    host: "${ANSIBLE_SERVER}",
-                    port: 22,
-                    username: 'ubuntu',
-                    script: '''
-                        ansible-playbook /opt/docker/create-image-cafe-app.yml
+            sshagent(credentials: ['ansible-ssh-credentials']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@${ANSIBLE_SERVER} \
+                        "ansible-playbook /opt/docker/create-image-cafe-app.yml"
                     '''
-                )
+                }
             }
         }
 
