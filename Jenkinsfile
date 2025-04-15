@@ -7,10 +7,10 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    environment {
-        ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
-        REMOTE_PROJECT_DIR = '/opt/deploy/mydepiproject' // Directory on remote server where code will be stored
-    }
+    // environment {
+    //     ANSIBLE_SERVER = 'ansible-server' // SSH server for ansible deployment
+    //     REMOTE_PROJECT_DIR = '/opt/deploy/mydepiproject' // Directory on remote server where code will be stored
+    // }
 
     // triggers {
     //     // Poll SCM every minute (you might want to change this to a more reasonable schedule)
