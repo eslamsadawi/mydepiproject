@@ -17,7 +17,7 @@ pipeline {
     //     // GitHub hook trigger for GIT SCM polling
     //     githubPush()
     // }
-
+    // test comment 
     stages {
         stage('Checkout') {
             steps {
